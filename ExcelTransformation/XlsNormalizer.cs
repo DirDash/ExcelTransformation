@@ -1,55 +1,49 @@
 ﻿using System;
-using Spire.Xls;
 
 namespace ExcelTransformation
 {
     public class XlsNormalizer
     {
+        private IXlsBook _inputBook;
+        private IXlsBook _outputBook;
+
         private string _outputBookFirstColumnTitle = "Id";
         private string _outputBookSecondColumnTitle = "Manager";
         private string _outputFileSuffix = "-normalized";
         private string _outputFileExtension = "xls";
 
-        public void NormalizeFile(string inputFileUrl)
+        public void NormalizeFile(IXlsBook inputBook, IXlsBook outputBook, string inputFileUrl)
         {
-            var inputBook = LoadBookFromUrl(inputFileUrl);
-            var outputBook = CreateOutputBook();
+            _inputBook = inputBook;
+            _inputBook.LoadFromFile(inputFileUrl);
 
-            NormalizeSheet(inputBook.Worksheets[0], outputBook.Worksheets[0]);
+            _outputBook = outputBook;
 
-            SaveOutputBook(outputBook, GetOutputFileUrl(inputBook.FileName));
+            FormatOutputBook();
+
+            Normalize();
+
+            _outputBook.SaveToFile(GetOutputFileUrl(inputFileUrl));
         }
 
-        private Workbook LoadBookFromUrl(string fileUrl)
+        private void FormatOutputBook()
         {
-            var book = new Workbook();
-            book.LoadFromFile(fileUrl);
-            return book;
+            _outputBook.SetValue(0, 0, _outputBookFirstColumnTitle);
+            _outputBook.SetValue(0, 1, _outputBookSecondColumnTitle);
         }
 
-        private Workbook CreateOutputBook()
-        {
-            var outputBook = new Workbook();
-            var firstSheet = outputBook.Worksheets[0];
-
-            firstSheet.Rows[0].Cells[0].Value = _outputBookFirstColumnTitle;
-            firstSheet.Rows[0].Cells[1].Value = _outputBookSecondColumnTitle;
-
-            return outputBook;
-        }
-
-        private void NormalizeSheet(Worksheet inputSheet, Worksheet outputSheet)
+        private void Normalize()
         {
             int inputRowIndex = 1;
             int outputRowIndex = 1;
-            while (inputRowIndex < inputSheet.Rows.Length && inputSheet.Rows[inputRowIndex].Cells[0].HasNumber)
+            while (!string.IsNullOrEmpty(_inputBook.GetValue(inputRowIndex, 0)))
             {
-                string id = inputSheet.Rows[inputRowIndex].Cells[0].Value;
+                string id = _inputBook.GetValue(inputRowIndex, 0);
                 int inputCellIndex = 2;
-                while (inputCellIndex < inputSheet.Rows[inputRowIndex].Cells.Length && inputSheet.Rows[inputRowIndex].Cells[inputCellIndex].HasString)
+                while (!string.IsNullOrEmpty(_inputBook.GetValue(inputRowIndex, inputCellIndex)))
                 {
-                    outputSheet.Rows[outputRowIndex].Cells[0].Value = id;
-                    outputSheet.Rows[outputRowIndex].Cells[1].Value = inputSheet.Rows[inputRowIndex].Cells[inputCellIndex].Value;
+                    _outputBook.SetValue(outputRowIndex, 0, id);
+                    _outputBook.SetValue(outputRowIndex, 1, _inputBook.GetValue(inputRowIndex, inputCellIndex));
                     outputRowIndex++;
                     inputCellIndex++;
                 }
@@ -70,11 +64,6 @@ namespace ExcelTransformation
             outputFileUrl += "." + _outputFileExtension;
 
             return outputFileUrl;
-        }
-
-        private void SaveOutputBook(Workbook outputBook, string fileName)
-        {
-            outputBook.SaveToFile(fileName);
         }
     }
 }

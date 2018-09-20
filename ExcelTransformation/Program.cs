@@ -1,4 +1,5 @@
 ﻿using System;
+using ExcelTransformation.XlsBooks;
 
 namespace ExcelTransformation
 {
@@ -13,7 +14,7 @@ namespace ExcelTransformation
             var xlsNormalizer = new XlsNormalizer();
             try
             {
-                xlsNormalizer.NormalizeFile(fileUrl);
+                xlsNormalizer.NormalizeFile(new SpireXlsBook(), new SpireXlsBook(), fileUrl);
             }
             catch(Exception exception)
             {

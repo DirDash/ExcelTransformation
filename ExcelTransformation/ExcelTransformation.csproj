@@ -69,8 +69,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IXlsBook.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="XlsBooks\SpireXlsBook.cs" />
     <Compile Include="XlsNormalizer.cs" />
   </ItemGroup>
   <ItemGroup>
