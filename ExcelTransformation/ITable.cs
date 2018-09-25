@@ -2,9 +2,8 @@
 {
     public interface ITable
     {
-        void LoadFromFile(string fileUrl);
-        void SaveToFile(string fileUrl);
-        string GetValue(int rowIndex, int columnIndex);
-        void SetValue(int rowIndex, int columnIndex, string value);
+        string GetCellValue(int rowIndex, int columnIndex);
+        void SetCellValue(int rowIndex, int columnIndex, string value);
+        void SaveAndClose();
     }
 }

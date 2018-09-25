@@ -25,7 +25,8 @@ namespace ExcelTransformation
         
         private Dictionary<string, int> _accountTableColumnTitles;
         private HashSet<string> _managerSet;
-        
+
+        private int _initialTableColumnAmount;
         private int _managerTableRowIndex;
         private int _relationTableRowIndex;
 
@@ -35,12 +36,30 @@ namespace ExcelTransformation
             _accountTable = accountTable;
             _managerTable = managerTable;
             _relationTable = relationTable;
-            
-            FormatAccountTable(GetInitialColumnTitles());
+
+            var initialTableColumnTitles = GetInitialTableColumnTitles();
+            _initialTableColumnAmount = initialTableColumnTitles.Count;
+
+            FormatAccountTable(initialTableColumnTitles);
             FormatManagerTable();
             FormatRelationTable();
 
             ProccessInitialTable();
+        }
+
+        private List<string> GetInitialTableColumnTitles()
+        {
+            var columnTitles = new List<string>();
+
+            int columnIndex = 0;
+            string columnTitle;
+            while (!string.IsNullOrEmpty(columnTitle = _initialTable.GetCellValue(0, columnIndex)))
+            {
+                columnTitles.Add(columnTitle);
+                columnIndex++;
+            }
+
+            return columnTitles;
         }
 
         private void FormatAccountTable(List<string> initialTableColumnTitles)
@@ -56,41 +75,26 @@ namespace ExcelTransformation
                 && columnTitle != _initialTableDivisionColumnTitle)
                 {
                     _accountTableColumnTitles.Add(columnTitle, columnIndex);
-                    _accountTable.SetValue(0, columnIndex, columnTitle);
+                    _accountTable.SetCellValue(0, columnIndex, columnTitle);
                     columnIndex++;
                 }
             }
-        }
-
-        private List<string> GetInitialColumnTitles()
-        {
-            var columnTitles = new List<string>();
-
-            int columnIndex = 0;
-            string columnTitle;
-            while (!string.IsNullOrEmpty(columnTitle = _initialTable.GetValue(0, columnIndex)))
-            {
-                columnTitles.Add(columnTitle);
-                columnIndex++;
-            }
-
-            return columnTitles;
         }
 
         private void FormatManagerTable()
         {
             _managerSet = new HashSet<string>();
 
-            _managerTable.SetValue(0, 0, _managerTableManagerColumnTitle);
+            _managerTable.SetCellValue(0, 0, _managerTableManagerColumnTitle);
 
             _managerTableRowIndex = 1;
         }
 
         private void FormatRelationTable()
         {
-            _relationTable.SetValue(0, 0, _relationTableAccountColumnTitle);
-            _relationTable.SetValue(0, 1, _relationTableManagerColumnTitle);
-            _relationTable.SetValue(0, 2, _relationTableTypeColumnTitle);
+            _relationTable.SetCellValue(0, 0, _relationTableAccountColumnTitle);
+            _relationTable.SetCellValue(0, 1, _relationTableManagerColumnTitle);
+            _relationTable.SetCellValue(0, 2, _relationTableTypeColumnTitle);
 
             _relationTableRowIndex = 1;
         }
@@ -99,14 +103,17 @@ namespace ExcelTransformation
         {
             int rowIndex = 1;
             string accountId;
-            while (!string.IsNullOrEmpty(accountId = _initialTable.GetValue(rowIndex, 0)))
+
+            while (!string.IsNullOrEmpty(accountId = _initialTable.GetCellValue(rowIndex, 0)))
             {
                 int columnIndex = 0;
-                string cellContent;
-                while ((cellContent = _initialTable.GetValue(rowIndex, columnIndex)) != null)
+                while (columnIndex < _initialTableColumnAmount)
                 {
-                    ProccesInitialTableCell(rowIndex, columnIndex, accountId, cellContent);
-
+                    string cellContent = _initialTable.GetCellValue(rowIndex, columnIndex);
+                    if (cellContent != null)
+                    {
+                        ProccesInitialTableCell(rowIndex, columnIndex, accountId, cellContent);
+                    }
                     columnIndex++;
                 }
                 rowIndex++;
@@ -115,7 +122,9 @@ namespace ExcelTransformation
 
         private void ProccesInitialTableCell(int rowIndex, int columnIndex, string accountId, string cellContent)
         {
-            string columnTitle = _initialTable.GetValue(0, columnIndex);
+            string columnTitle = _initialTable.GetCellValue(0, columnIndex);
+
+            cellContent = FormatCellContent(cellContent, columnIndex);
 
             if (columnTitle == _initialTableManagerColumnTitle
                 || columnTitle == _initialTableRegionColumnTitle
@@ -130,6 +139,15 @@ namespace ExcelTransformation
             }
         }
 
+        private string FormatCellContent(string content, int columnIndex)
+        {
+            if (columnIndex < 9 && columnIndex != 1)
+            {
+                return content.ToUpper().Trim();
+            }
+            return content;
+        }
+
         private void ProcessAsManagerCell(string rowId, string columnTitle, string cellContent)
         {
             var managers = cellContent.Split(_cellContentDividers, StringSplitOptions.RemoveEmptyEntries);
@@ -138,17 +156,17 @@ namespace ExcelTransformation
             {
                 if (!_managerSet.Contains(manager))
                 {
-                    AddRowIntoManagerTable(manager);
-                    AddRowIntoRelationTable(rowId, manager, GetRelationType(columnTitle));
+                    InsertInRowManagerTable(manager);
                     _managerSet.Add(manager);
                 }
+                InsertRowInRelationTable(rowId, manager, GetRelationType(columnTitle));
             }
         }
 
         private void ProcessAsAccountCell(int rowIndex, string columnTitle, string cellContent)
         {
             int columnIndex = _accountTableColumnTitles[columnTitle];
-            _accountTable.SetValue(rowIndex, columnIndex, cellContent);
+            _accountTable.SetCellValue(rowIndex, columnIndex, cellContent);
         }
 
         private string GetRelationType(string columnTitle)
@@ -168,16 +186,17 @@ namespace ExcelTransformation
             }
         }
 
-        private void AddRowIntoManagerTable(string manager)
+        private void InsertInRowManagerTable(string manager)
         {
-            _managerTable.SetValue(_managerTableRowIndex, 0, manager);
+            _managerTable.SetCellValue(_managerTableRowIndex, 0, manager);
             _managerTableRowIndex++;
         }
 
-        private void AddRowIntoRelationTable(string accountId, string manager, string type)
+        private void InsertRowInRelationTable(string accountId, string manager, string type)
         {
-            _relationTable.SetValue(_relationTableRowIndex, 0, accountId);
-            _relationTable.SetValue(_relationTableRowIndex, 1, manager);
+            _relationTable.SetCellValue(_relationTableRowIndex, 0, accountId);
+            _relationTable.SetCellValue(_relationTableRowIndex, 1, manager);
+            _relationTable.SetCellValue(_relationTableRowIndex, 2, type);
 
             _relationTableRowIndex++;
         }
