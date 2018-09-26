@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using ExcelTransformation.Utils;
 
 namespace ExcelTransformation.TableClasses
 {
@@ -28,35 +31,52 @@ namespace ExcelTransformation.TableClasses
             else
             {
                 CreateNewFile(fileUrl);
-            }            
+            }
+
+            RowsCount = _sheetData.ChildElements.Count;
         }
+
+        public int RowsCount { get; }
 
         public string GetCellValue(int rowIndex, int columnIndex)
         {
-            var row = _sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex == rowIndex + 1);
+            if (rowIndex >= RowsCount) return null;
 
-            if (row == null) return null;
+            var row = _sheetData.ChildElements.GetElementSafe(rowIndex);
+            var cell = row?.ChildElements.GetElementSafe<Cell>(columnIndex);
 
-            string cellReference = ConvertToColumnName(columnIndex) + (rowIndex + 1);
+            return GetCellValue(cell);
+        }
 
-            var cell = row.Elements<Cell>().FirstOrDefault(c => c.CellReference == cellReference);
-
-            if (cell == null) return null;   
+        public string GetCellValue(Cell cell)
+        {
+            if (cell == null) return null;
 
             if (cell.DataType == CellValues.SharedString)
             {
-                var sharedStringItem = _workbookPart.SharedStringTablePart.SharedStringTable.Elements<SharedStringItem>().ElementAt(int.Parse(cell.InnerText));
+                var sharedStringIndex = int.Parse(cell.InnerText);
+                var sharedStringsTable = _workbookPart.SharedStringTablePart.SharedStringTable;
+                var sharedStringItem = sharedStringsTable.ChildElements.GetElementSafe(sharedStringIndex);
+
                 return sharedStringItem.InnerText;
             }
-            else
-            {
-                return cell.InnerText;
-            }
+
+            return cell.InnerText;
+        }
+
+        public IEnumerable<string> GetCellValues(int rowIndex)
+        {
+            if (rowIndex >= RowsCount) return null;
+
+            var row = _sheetData.ElementAt(rowIndex);
+
+            return row.OfType<Cell>().Select(GetCellValue);
         }
 
         public void SetCellValue(int rowIndex, int columnIndex, string value)
         {
-            int sharedStringIndex = InsertSharedStringItem(value);            
+            var sharedStringIndex = InsertSharedStringItem(value);
+
             InsertCell(rowIndex, columnIndex, sharedStringIndex);
         }
 
@@ -102,18 +122,19 @@ namespace ExcelTransformation.TableClasses
 
             var sheets = _document.WorkbookPart.Workbook.AppendChild(new Sheets());
 
-            Sheet sheet = new Sheet()
+            var sheet = new Sheet
             {
                 Id = _document.WorkbookPart.GetIdOfPart(_worksheetPart),
                 SheetId = 1,
                 Name = _sheetName
             };
+
             sheets.Append(sheet);
         }
 
         private int InsertSharedStringItem(string text)
         {
-            int itemIndex = 0;            
+            int itemIndex = 0;
             foreach (var item in _shareStringTablePart.SharedStringTable.Elements<SharedStringItem>())
             {
                 if (item.InnerText == text)
@@ -127,7 +148,7 @@ namespace ExcelTransformation.TableClasses
 
             return itemIndex;
         }
-        
+
         private void InsertCell(int rowIndex, int columnIndex, int sharedStringIndex)
         {
             var cell = GetCell(rowIndex, columnIndex);
@@ -138,27 +159,27 @@ namespace ExcelTransformation.TableClasses
 
         private Cell GetCell(int rowIndex, int columnIndex)
         {
-            var row = GetRow(rowIndex);
-
-            string cellReference = ConvertToColumnName(columnIndex) + (rowIndex + 1);
-            var cell = row.Elements<Cell>().FirstOrDefault(c => c.CellReference == cellReference);
+            var row = GetRowOrCreateNew(rowIndex);
+            var cell = (Cell)row.ElementAt(columnIndex);
 
             if (cell == null)
             {
-                cell = new Cell() { CellReference = cellReference };
+                var cellReference = ConvertToColumnName(columnIndex);
+
+                cell = new Cell { CellReference = cellReference };
                 row.Append(cell);
             }
 
             return cell;
         }
 
-        private Row GetRow(int rowIndex)
+        private Row GetRowOrCreateNew(int rowIndex)
         {
-            var row = _sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex == rowIndex + 1);
+            var row = (Row)_sheetData.ElementAt(rowIndex);
 
             if (row == null)
             {
-                row = new Row() { RowIndex = (uint)(rowIndex + 1) };
+                row = new Row { RowIndex = (uint)(rowIndex + 1) };
                 _sheetData.Append(row);
             }
 

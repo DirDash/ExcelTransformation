@@ -1,5 +1,6 @@
 ﻿using System;
 using ExcelTransformation.TableClasses;
+using ExcelTransformation.Utils;
 
 namespace ExcelTransformation
 {
@@ -11,11 +12,11 @@ namespace ExcelTransformation
             const string managerTablePostfix = "-managers";
             const string relationTablePostfix = "-account-manager-relations";
             const string outputFileExtension = "xlsx";
-            
-            string initialTableUrl = GetInitialTableFileUrl();
-            string accountTableUrl = GetOutputFileUrl(initialTableUrl, accountTablePostfix, outputFileExtension);
-            string managerTableUrl = GetOutputFileUrl(initialTableUrl, managerTablePostfix, outputFileExtension);
-            string relationTableUrl = GetOutputFileUrl(initialTableUrl, relationTablePostfix, outputFileExtension);
+
+            var initialTableUrl = GetInitialTableFileUrl();
+            var accountTableUrl = GetOutputFileUrl(initialTableUrl, accountTablePostfix, outputFileExtension);
+            var managerTableUrl = GetOutputFileUrl(initialTableUrl, managerTablePostfix, outputFileExtension);
+            var relationTableUrl = GetOutputFileUrl(initialTableUrl, relationTablePostfix, outputFileExtension);
 
             var xlsNormalizer = new AccountManagerNormalizer();
 
@@ -27,15 +28,21 @@ namespace ExcelTransformation
                 var relationTable = new OpenXMLTable(relationTableUrl, true);
 
                 Console.WriteLine("Normalization in progress...");
-                xlsNormalizer.Normalize(initialTable, accountTable, managerTable, relationTable);
+
+                using (ExecutionTimer.StartNew("Normalization"))
+                {
+                    xlsNormalizer.Normalize(initialTable, accountTable, managerTable, relationTable);
+                }
 
                 accountTable.SaveAndClose();
                 managerTable.SaveAndClose();
                 relationTable.SaveAndClose();
             }
-            catch(Exception exception)
+            catch (Exception exception)
             {
+                Console.WriteLine("EXCEPTION Occured:");
                 Console.WriteLine(exception.Message);
+
                 Close();
                 return;
             }
@@ -47,6 +54,9 @@ namespace ExcelTransformation
         static string GetInitialTableFileUrl()
         {
             Console.Write("Enter (xls|xlsx) file to normalize url: ");
+
+            return System.IO.Path.GetFullPath("\\..\\..\\examples\\input_01.xlsx");
+
             return Console.ReadLine();
         }
 
