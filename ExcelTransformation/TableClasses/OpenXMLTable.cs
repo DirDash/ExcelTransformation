@@ -6,7 +6,6 @@ using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using ExcelTransformation.Utils;
 
 namespace ExcelTransformation.TableClasses
 {
@@ -22,6 +21,8 @@ namespace ExcelTransformation.TableClasses
         private SheetData _sheetData;
         private SharedStringTablePart _shareStringTablePart;
 
+        private int _rowsCount;
+
         public OpenXMLTable(string fileUrl, bool editable)
         {
             if (File.Exists(fileUrl))
@@ -33,11 +34,8 @@ namespace ExcelTransformation.TableClasses
                 CreateNewFile(fileUrl);
             }
 
-            RowsCount = _sheetData.ChildElements.Count;
+            _rowsCount = _sheetData.ChildElements.Count;
         }
-        
-        //TODO: make private
-        public int RowsCount { get; private set; }
 
         public void SaveAndClose()
         {
@@ -47,7 +45,7 @@ namespace ExcelTransformation.TableClasses
 
         public IEnumerable<TableCell> GetRow(int rowIndex)
         {
-            if (rowIndex >= RowsCount) return null;
+            if (rowIndex >= _rowsCount) return null;
 
             var row = _sheetData.ElementAt(rowIndex);
 
@@ -79,12 +77,12 @@ namespace ExcelTransformation.TableClasses
 
         public void AddRow(IEnumerable<TableCell> cells)
         {
-            RowsCount++;
-            var row = new Row { RowIndex = (uint)(RowsCount) };
+            _rowsCount++;
+            var row = new Row { RowIndex = (uint)(_rowsCount) };
 
             foreach (var cell in cells)
             {
-                var cellReference = ConvertToColumnName(cell.ColumnIndex) + RowsCount;
+                var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowsCount;
 
                 var newCell = new Cell();
                 newCell.CellReference = cellReference;
@@ -99,20 +97,8 @@ namespace ExcelTransformation.TableClasses
 
             _sheetData.Append(row);
         }
-
-        //TODO: remove
-        public string GetCellValue(int rowIndex, int columnIndex)
-        {
-            if (rowIndex >= RowsCount) return null;
-
-            var row = _sheetData.ChildElements.GetElementSafe(rowIndex);
-            var cell = row?.ChildElements.GetElementSafe<Cell>(columnIndex);
-
-            return GetCellValue(cell);
-        }
-
-        //TODO: make private
-        public string GetCellValue(Cell cell)
+        
+        private string GetCellValue(Cell cell)
         {
             if (cell == null) return null;
 
@@ -127,24 +113,6 @@ namespace ExcelTransformation.TableClasses
             }
 
             return cell.InnerText;
-        }
-
-        //TODO: remove
-        public IEnumerable<string> GetCellValues(int rowIndex)
-        {
-            if (rowIndex >= RowsCount) return null;
-
-            var row = _sheetData.ElementAt(rowIndex);
-
-            return row.OfType<Cell>().Select(GetCellValue);
-        }
-
-        //TODO: remove
-        public void SetCellValue(int rowIndex, int columnIndex, string value)
-        {
-            var sharedStringIndex = InsertSharedStringItem(value);
-
-            InsertCell(rowIndex, columnIndex, sharedStringIndex);
         }
 
         private void OpenExistingFile(string fileUrl, bool editable)
@@ -208,47 +176,6 @@ namespace ExcelTransformation.TableClasses
             _shareStringTablePart.SharedStringTable.AppendChild(new SharedStringItem(new Text(text)));
 
             return itemIndex;
-        }
-
-        //TODO: remove
-        private void InsertCell(int rowIndex, int columnIndex, int sharedStringIndex)
-        {
-            var cell = GetCellOrCreateNew(rowIndex, columnIndex);
-
-            cell.CellValue = new CellValue(sharedStringIndex.ToString());
-            cell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
-        }
-
-        //TODO: remove
-        private Cell GetCellOrCreateNew(int rowIndex, int columnIndex)
-        {
-            var row = GetRowOrCreateNew(rowIndex);
-            var cell = (rowIndex < RowsCount - 1) ? (Cell)row.ElementAt(columnIndex) : null;
-
-            if (cell == null)
-            {
-                var cellReference = ConvertToColumnName(columnIndex);
-
-                cell = new Cell { CellReference = cellReference };
-                row.Append(cell);
-            }
-
-            return cell;
-        }
-
-        //TODO: remove
-        private Row GetRowOrCreateNew(int rowIndex)
-        {
-            var row = (rowIndex < RowsCount) ? (Row)_sheetData.ElementAt(rowIndex) : null;
-
-            if (row == null)
-            {
-                row = new Row { RowIndex = (uint)(rowIndex + 1) };
-                _sheetData.Append(row);
-                RowsCount++;
-            }
-
-            return row;
         }
 
         private string ConvertToColumnName(int columnIndex)

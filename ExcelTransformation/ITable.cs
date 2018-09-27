@@ -9,18 +9,5 @@ namespace ExcelTransformation
         void AddRow(IEnumerable<TableCell> cells);
 
         void SaveAndClose();
-
-
-        //TODO: remove
-        int RowsCount { get; }
-
-        //TODO: remove
-        IEnumerable<string> GetCellValues(int rowIndex);
-
-        //TODO: remove
-        string GetCellValue(int rowIndex, int columnIndex);
-
-        //TODO: remove
-        void SetCellValue(int rowIndex, int columnIndex, string value);
     }
 }
