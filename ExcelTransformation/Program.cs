@@ -48,7 +48,7 @@ namespace ExcelTransformation
             }
 
             Console.WriteLine("Normalization has been successfully done.");
-            Close();
+            Close();            
         }
 
         static string GetInitialTableFileUrl()
@@ -57,7 +57,7 @@ namespace ExcelTransformation
 
             return System.IO.Path.GetFullPath("\\..\\..\\examples\\input_01.xlsx");
 
-            return Console.ReadLine();
+            //return Console.ReadLine();
         }
 
         static string GetOutputFileUrl(string inputTableFileName, string postfix, string fileExtension)

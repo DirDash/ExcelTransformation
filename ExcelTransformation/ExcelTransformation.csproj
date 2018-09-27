@@ -203,6 +203,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="TableCell.cs" />
     <Compile Include="TableClasses\Extensions.cs" />
     <Compile Include="Utils\ExecutionTimer.cs" />
     <Compile Include="ITable.cs" />

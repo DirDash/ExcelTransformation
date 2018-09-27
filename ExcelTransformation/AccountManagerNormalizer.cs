@@ -12,11 +12,11 @@ namespace ExcelTransformation
         private const string _initialTableAreaColumnTitle = "__l9area_vps";
         private const string _initialTableDivisionColumnTitle = "__l9division";
 
-        private const string _managerTableManagerColumnTitle = "Manager";
+        private const string _managerTableManagerHeader = "Manager";
 
-        private const string _relationTableAccountColumnTitle = "id";
-        private const string _relationTableManagerColumnTitle = "Manager";
-        private const string _relationTableTypeColumnTitle = "Type";
+        private const string _relationTableAccountHeader = "id";
+        private const string _relationTableManagerHeader = "Manager";
+        private const string _relationTableTypeHeader = "Type";
 
         private char[] _cellContentDividers = new char[] { '|' };
 
@@ -25,12 +25,12 @@ namespace ExcelTransformation
         private ITable _managerTable;
         private ITable _relationTable;
 
-        private Dictionary<string, int> _accountTableColumnTitles;
+        private List<string> _initialTableHeaders;
+        private Dictionary<string, int> _accountTableHeaders;
         private HashSet<string> _managerSet;
-
-        private int _initialTableColumnAmount;
-        private int _managerTableRowIndex;
-        private int _relationTableRowIndex;
+        
+        //private int _managerTableRowIndex;
+        //private int _relationTableRowIndex;
 
         public void Normalize(ITable initialTable, ITable accountTable, ITable managerTable, ITable relationTable)
         {
@@ -39,10 +39,9 @@ namespace ExcelTransformation
             _managerTable = managerTable;
             _relationTable = relationTable;
 
-            var initialTableColumnTitles = GetInitialTableColumnTitles();
-            _initialTableColumnAmount = initialTableColumnTitles.Count;
+            _initialTableHeaders = GetInitialTableHeaders();
 
-            FormatAccountTable(initialTableColumnTitles);
+            FormatAccountTable();
             FormatManagerTable();
             FormatRelationTable();
 
@@ -50,61 +49,98 @@ namespace ExcelTransformation
                 ProccessInitialTable();
         }
 
-        private List<string> GetInitialTableColumnTitles()
+        private List<string> GetInitialTableHeaders()
         {
-            var headerCellValues = _initialTable.GetCellValues(0);
+            var headerCellValues = _initialTable.GetRow(0);
 
-            return headerCellValues.ToList();
+            return headerCellValues.Select(h => h.Value).ToList();
         }
 
-        private void FormatAccountTable(List<string> initialTableColumnTitles)
+        private void FormatAccountTable()
         {
-            _accountTableColumnTitles = new Dictionary<string, int>();
+            var accountTableHeaders = new List<TableCell>();
+
+            _accountTableHeaders = new Dictionary<string, int>();
 
             var columnIndex = 0;
 
-            foreach (var columnTitle in initialTableColumnTitles)
+            foreach (var header in _initialTableHeaders)
             {
-                if (columnTitle != _initialTableManagerColumnTitle
-                && columnTitle != _initialTableRegionColumnTitle
-                && columnTitle != _initialTableAreaColumnTitle
-                && columnTitle != _initialTableDivisionColumnTitle)
+                if (!IsManagerHeader(header))
                 {
-                    _accountTableColumnTitles.Add(columnTitle, columnIndex);
-                    _accountTable.SetCellValue(0, columnIndex, columnTitle);
+                    _accountTableHeaders.Add(header, columnIndex);
+                    accountTableHeaders.Add(new TableCell(0, columnIndex, header));
                     columnIndex++;
+
+                    //_accountTable.SetCellValue(0, columnIndex, header);
                 }
             }
+
+            _accountTable.AddRow(accountTableHeaders);
         }
 
         private void FormatManagerTable()
         {
             _managerSet = new HashSet<string>();
 
-            _managerTable.SetCellValue(0, 0, _managerTableManagerColumnTitle);
+            var managerTableHeaders = new List<TableCell>();
 
-            _managerTableRowIndex = 1;
+            managerTableHeaders.Add(new TableCell(0, 0, _managerTableManagerHeader));
+
+            _managerTable.AddRow(managerTableHeaders);
+
+            //_managerTableRowIndex = 1;
         }
 
         private void FormatRelationTable()
         {
-            _relationTable.SetCellValue(0, 0, _relationTableAccountColumnTitle);
-            _relationTable.SetCellValue(0, 1, _relationTableManagerColumnTitle);
-            _relationTable.SetCellValue(0, 2, _relationTableTypeColumnTitle);
+            var relationTableHeaders = new List<TableCell>();
 
-            _relationTableRowIndex = 1;
+            relationTableHeaders.Add(new TableCell(0, 0, _relationTableAccountHeader));
+            relationTableHeaders.Add(new TableCell(0, 1, _relationTableManagerHeader));
+            relationTableHeaders.Add(new TableCell(0, 2, _relationTableTypeHeader));
+
+            _relationTable.AddRow(relationTableHeaders);
+
+            //_relationTableRowIndex = 1;
         }
 
         private void ProccessInitialTable()
         {
             var rowIndex = 1;
-            string accountId;
 
-            while (!string.IsNullOrEmpty(accountId = _initialTable.GetCellValue(rowIndex, 0)))
+            IEnumerable<TableCell> rowCells;
+            while ((rowCells = _initialTable.GetRow(rowIndex)) != null)
             {
-                var columnIndex = 0;
+                var accountId = rowCells.First().Value;
 
-                var tt = _initialTable.GetCellValues(rowIndex);
+                var accountCells = new List<TableCell>();
+                foreach (var cell in rowCells)
+                {
+                    string columnHeader = _initialTableHeaders[cell.ColumnIndex];
+
+                    cell.Value = FormatCellValue(cell);
+
+                    if (IsManagerHeader(columnHeader))
+                    {
+                        ProcessAsManagerCell(cell, columnHeader, accountId);
+                    }
+                    else
+                    {
+                        int accountTableColumnIndex = _accountTableHeaders[columnHeader];
+                        accountCells.Add(new TableCell(rowIndex, accountTableColumnIndex, cell.Value));
+
+                        //ProcessAsAccountCell(cell, columnHeader);
+                    }
+
+                    //ProccesInitialTableCell(cell, accountId);
+                }
+                _accountTable.AddRow(accountCells);
+                rowIndex++;
+
+                //var columnIndex = 0;
+
+                //var tt = _initialTable.GetCellValues(rowIndex);
 
                 //while (columnIndex < _initialTableColumnAmount)
                 //{
@@ -115,58 +151,32 @@ namespace ExcelTransformation
 
                 //    columnIndex++;
                 //}
-                rowIndex++;
             }
         }
 
-        private void ProccesInitialTableCell(int rowIndex, int columnIndex, string accountId, string cellContent)
+        private string FormatCellValue(TableCell cell)
         {
-            string columnTitle = _initialTable.GetCellValue(0, columnIndex);
-
-            cellContent = FormatCellContent(cellContent, columnIndex);
-
-            if (columnTitle == _initialTableManagerColumnTitle
-                || columnTitle == _initialTableRegionColumnTitle
-                || columnTitle == _initialTableAreaColumnTitle
-                || columnTitle == _initialTableDivisionColumnTitle)
+            if (cell.ColumnIndex < 9 && cell.ColumnIndex != 1)
             {
-                ProcessAsManagerCell(accountId, columnTitle, cellContent);
+                return cell.Value.ToUpper().Trim();
             }
-            else
-            {
-                ProcessAsAccountCell(rowIndex, columnTitle, cellContent);
-            }
+            return cell.Value;
         }
 
-        private string FormatCellContent(string content, int columnIndex)
+        private void ProcessAsManagerCell(TableCell cell, string columnHeader, string accountId)
         {
-            if (columnIndex < 9 && columnIndex != 1)
-            {
-                return content.ToUpper().Trim();
-            }
-            return content;
-        }
-
-        private void ProcessAsManagerCell(string rowId, string columnTitle, string cellContent)
-        {
-            var managers = cellContent.Split(_cellContentDividers, StringSplitOptions.RemoveEmptyEntries);
+            var managers = cell.Value.Split(_cellContentDividers, StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var manager in managers)
             {
                 if (!_managerSet.Contains(manager))
                 {
-                    InsertInRowManagerTable(manager);
+                    InsertRowInManagerTable(manager);
                     _managerSet.Add(manager);
                 }
 
-                InsertRowInRelationTable(rowId, manager, GetRelationType(columnTitle));
+                InsertRowInRelationTable(accountId, manager, GetRelationType(columnHeader));
             }
-        }
-
-        private void ProcessAsAccountCell(int rowIndex, string columnTitle, string cellContent)
-        {
-            int columnIndex = _accountTableColumnTitles[columnTitle];
-            _accountTable.SetCellValue(rowIndex, columnIndex, cellContent);
         }
 
         private string GetRelationType(string columnTitle)
@@ -186,19 +196,65 @@ namespace ExcelTransformation
             }
         }
 
-        private void InsertInRowManagerTable(string manager)
+        private bool IsManagerHeader(string titleValue)
         {
-            _managerTable.SetCellValue(_managerTableRowIndex, 0, manager);
-            _managerTableRowIndex++;
+            return titleValue == _initialTableManagerColumnTitle
+                   || titleValue == _initialTableRegionColumnTitle
+                   || titleValue == _initialTableAreaColumnTitle
+                   || titleValue == _initialTableDivisionColumnTitle;
+        }
+
+        private void InsertRowInManagerTable(string manager)
+        {
+            var rowCells = new List<TableCell>();
+            rowCells.Add(new TableCell(0, 0, manager));
+            _managerTable.AddRow(rowCells);
+
+            //_managerTable.SetCellValue(_managerTableRowIndex, 0, manager);
+            //_managerTableRowIndex++;
         }
 
         private void InsertRowInRelationTable(string accountId, string manager, string type)
         {
-            _relationTable.SetCellValue(_relationTableRowIndex, 0, accountId);
-            _relationTable.SetCellValue(_relationTableRowIndex, 1, manager);
-            _relationTable.SetCellValue(_relationTableRowIndex, 2, type);
+            var rowCells = new List<TableCell>();
+            rowCells.Add(new TableCell(0, 0, accountId));
+            rowCells.Add(new TableCell(0, 1, manager));
+            rowCells.Add(new TableCell(0, 2, type));
 
-            _relationTableRowIndex++;
+            _relationTable.AddRow(rowCells);
+            
+            //_relationTable.SetCellValue(_relationTableRowIndex, 0, accountId);
+            //_relationTable.SetCellValue(_relationTableRowIndex, 1, manager);
+            //_relationTable.SetCellValue(_relationTableRowIndex, 2, type);
+
+            //_relationTableRowIndex++;            
         }
+
+        /*
+        private void ProccesInitialTableCell(TableCell cell, string accountId)
+        {
+            string columnHeader = _initialTableHeaders[cell.ColumnIndex];
+
+            var formattedCellValue = FormatCellValue(cell);
+
+            if (IsManagerHeader(columnHeader))
+            {
+                ProcessAsManagerCell(cell, columnHeader, accountId);
+            }
+            else
+            {
+                ProcessAsAccountCell(cell, columnHeader);
+            }
+        }
+        */
+
+        /*
+        private void ProcessAsAccountCell(TableCell cell, string columnHeader)
+        {
+            int columnIndex = _accountTableHeaders[columnHeader];
+
+            _accountTable.SetCellValue(cell.RowIndex, columnIndex, cell.Value);
+        }
+        */
     }
 }

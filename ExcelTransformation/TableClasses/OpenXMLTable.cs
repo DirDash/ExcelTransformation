@@ -35,9 +35,72 @@ namespace ExcelTransformation.TableClasses
 
             RowsCount = _sheetData.ChildElements.Count;
         }
+        
+        //TODO: make private
+        public int RowsCount { get; private set; }
 
-        public int RowsCount { get; }
+        public void SaveAndClose()
+        {
+            _document.Save();
+            _document.Close();
+        }
 
+        public IEnumerable<TableCell> GetRow(int rowIndex)
+        {
+            if (rowIndex >= RowsCount) return null;
+
+            var row = _sheetData.ElementAt(rowIndex);
+
+            return row.OfType<Cell>().Select(ConvertToTableCell); ;
+        }
+
+        private TableCell ConvertToTableCell(Cell cell)
+        {
+            string rowPart = string.Empty;
+            string columnPart = string.Empty;
+            foreach (char c in cell.CellReference.Value)
+            {
+                if (char.IsDigit(c))
+                {
+                    rowPart += c;
+                }
+                else
+                {
+                    columnPart += c;
+                }
+            }
+
+            int rowIndex = int.Parse(rowPart) - 1;
+            int columnIndex = ConvertToColumnIndex(columnPart);
+            string cellValue = GetCellValue(cell);
+
+            return new TableCell(rowIndex, columnIndex, cellValue);
+        }
+
+        public void AddRow(IEnumerable<TableCell> cells)
+        {
+            RowsCount++;
+            var row = new Row { RowIndex = (uint)(RowsCount) };
+
+            foreach (var cell in cells)
+            {
+                var cellReference = ConvertToColumnName(cell.ColumnIndex) + RowsCount;
+
+                var newCell = new Cell();
+                newCell.CellReference = cellReference;
+
+                var sharedStringIndex = InsertSharedStringItem(cell.Value);
+
+                newCell.CellValue = new CellValue(sharedStringIndex.ToString());
+                newCell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
+
+                row.Append(newCell);
+            }
+
+            _sheetData.Append(row);
+        }
+
+        //TODO: remove
         public string GetCellValue(int rowIndex, int columnIndex)
         {
             if (rowIndex >= RowsCount) return null;
@@ -48,6 +111,7 @@ namespace ExcelTransformation.TableClasses
             return GetCellValue(cell);
         }
 
+        //TODO: make private
         public string GetCellValue(Cell cell)
         {
             if (cell == null) return null;
@@ -57,6 +121,7 @@ namespace ExcelTransformation.TableClasses
                 var sharedStringIndex = int.Parse(cell.InnerText);
                 var sharedStringsTable = _workbookPart.SharedStringTablePart.SharedStringTable;
                 var sharedStringItem = sharedStringsTable.ChildElements.GetElementSafe(sharedStringIndex);
+                //var sharedStringItem = sharedStringsTable.ElementAt(sharedStringIndex);
 
                 return sharedStringItem.InnerText;
             }
@@ -64,6 +129,7 @@ namespace ExcelTransformation.TableClasses
             return cell.InnerText;
         }
 
+        //TODO: remove
         public IEnumerable<string> GetCellValues(int rowIndex)
         {
             if (rowIndex >= RowsCount) return null;
@@ -73,17 +139,12 @@ namespace ExcelTransformation.TableClasses
             return row.OfType<Cell>().Select(GetCellValue);
         }
 
+        //TODO: remove
         public void SetCellValue(int rowIndex, int columnIndex, string value)
         {
             var sharedStringIndex = InsertSharedStringItem(value);
 
             InsertCell(rowIndex, columnIndex, sharedStringIndex);
-        }
-
-        public void SaveAndClose()
-        {
-            _document.Save();
-            _document.Close();
         }
 
         private void OpenExistingFile(string fileUrl, bool editable)
@@ -135,7 +196,7 @@ namespace ExcelTransformation.TableClasses
         private int InsertSharedStringItem(string text)
         {
             int itemIndex = 0;
-            foreach (var item in _shareStringTablePart.SharedStringTable.Elements<SharedStringItem>())
+            foreach (var item in _shareStringTablePart.SharedStringTable.Elements())
             {
                 if (item.InnerText == text)
                 {
@@ -149,18 +210,20 @@ namespace ExcelTransformation.TableClasses
             return itemIndex;
         }
 
+        //TODO: remove
         private void InsertCell(int rowIndex, int columnIndex, int sharedStringIndex)
         {
-            var cell = GetCell(rowIndex, columnIndex);
+            var cell = GetCellOrCreateNew(rowIndex, columnIndex);
 
             cell.CellValue = new CellValue(sharedStringIndex.ToString());
             cell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
         }
 
-        private Cell GetCell(int rowIndex, int columnIndex)
+        //TODO: remove
+        private Cell GetCellOrCreateNew(int rowIndex, int columnIndex)
         {
             var row = GetRowOrCreateNew(rowIndex);
-            var cell = (Cell)row.ElementAt(columnIndex);
+            var cell = (rowIndex < RowsCount - 1) ? (Cell)row.ElementAt(columnIndex) : null;
 
             if (cell == null)
             {
@@ -173,14 +236,16 @@ namespace ExcelTransformation.TableClasses
             return cell;
         }
 
+        //TODO: remove
         private Row GetRowOrCreateNew(int rowIndex)
         {
-            var row = (Row)_sheetData.ElementAt(rowIndex);
+            var row = (rowIndex < RowsCount) ? (Row)_sheetData.ElementAt(rowIndex) : null;
 
             if (row == null)
             {
                 row = new Row { RowIndex = (uint)(rowIndex + 1) };
                 _sheetData.Append(row);
+                RowsCount++;
             }
 
             return row;
@@ -199,6 +264,13 @@ namespace ExcelTransformation.TableClasses
             }
 
             return columnName;
+        }
+
+        // Only for first 26 columns (A..Z)
+        // TODO: extend for all columns
+        private int ConvertToColumnIndex(string columnName) 
+        {
+            return columnName[0] - 65;
         }
     }
 }
