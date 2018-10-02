@@ -76,11 +76,11 @@ namespace ExcelTransformation.TableClasses
 
             foreach (var cell in cells)
             {
+                var newCell = new Cell();
+
                 var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowCount;
 
-                var newCell = new Cell();
                 newCell.CellReference = cellReference;
-
                 newCell.CellValue = new CellValue(cell.Value);
                 newCell.DataType = new EnumValue<CellValues>(CellValues.String);
 
@@ -139,8 +139,9 @@ namespace ExcelTransformation.TableClasses
             var columnPart = string.Empty;
             foreach (char c in cell.CellReference.Value)
             {
-                if (!char.IsDigit(c))
-                    columnPart += c;
+                if (char.IsDigit(c)) break;
+
+                columnPart += c;
             }
             
             var columnIndex = ConvertToColumnIndex(columnPart);

@@ -39,7 +39,7 @@ namespace ExcelTransformation
                 Console.WriteLine("Creating relation table...");
                 relationTable.Create(relationTableUrl);
 
-                Console.WriteLine("Normalization in progress...");
+                Console.WriteLine("Normalizing...");
                 using (ExecutionTimer.StartNew("Normalization"))
                 {
                     xlsNormalizer.Normalize(initialTable, accountTable, managerTable, relationTable);
