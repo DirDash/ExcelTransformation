@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
@@ -26,7 +27,7 @@ namespace ExcelTransformation.TableClasses
 
         public void Open(string fileUrl, bool editable)
         {
-            _document = SpreadsheetDocument.Open(fileUrl, editable, new OpenSettings() { AutoSave = _autosave });
+            _document = SpreadsheetDocument.Open(Path.GetFullPath(fileUrl), editable, new OpenSettings() { AutoSave = _autosave });
 
             var workbookPart = _document.WorkbookPart;
 
@@ -39,7 +40,7 @@ namespace ExcelTransformation.TableClasses
 
         public void Create(string fileUrl)
         {
-            _document = SpreadsheetDocument.Create(fileUrl, SpreadsheetDocumentType.Workbook, _autosave);
+            _document = SpreadsheetDocument.Create(Path.GetFullPath(fileUrl), SpreadsheetDocumentType.Workbook, _autosave);
 
             var workbookPart = _document.AddWorkbookPart();
             workbookPart.Workbook = new Workbook();
@@ -140,13 +141,9 @@ namespace ExcelTransformation.TableClasses
             foreach (char c in cell.CellReference.Value)
             {
                 if (char.IsDigit(c))
-                {
                     rowPart += c;
-                }
                 else
-                {
                     columnPart += c;
-                }
             }
 
             var rowIndex = int.Parse(rowPart) - 1;

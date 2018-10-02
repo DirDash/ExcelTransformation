@@ -27,18 +27,25 @@ namespace ExcelTransformation
 
             try
             {
-                Console.WriteLine("Normalization in progress...");
-
+                Console.WriteLine("Opening initial table...");
                 initialTable.Open(initialTableUrl, false);
+
+                Console.WriteLine("Creating account table...");
                 accountTable.Create(accountTableUrl);
+
+                Console.WriteLine("Creating manager table...");
                 managerTable.Create(managerTableUrl);
+
+                Console.WriteLine("Creating relation table...");
                 relationTable.Create(relationTableUrl);
 
+                Console.WriteLine("Normalization in progress...");
                 using (ExecutionTimer.StartNew("Normalization"))
                 {
                     xlsNormalizer.Normalize(initialTable, accountTable, managerTable, relationTable);
                 }
 
+                Console.WriteLine("Saving...");
                 initialTable.SaveAndClose();
                 accountTable.SaveAndClose();
                 managerTable.SaveAndClose();
@@ -46,14 +53,12 @@ namespace ExcelTransformation
             }
             catch (Exception exception)
             {
-                Console.WriteLine("EXCEPTION Occured:");
-                Console.WriteLine(exception.Message);
-
+                LogError(exception.Message);
                 Close();
                 return;
             }
 
-            Console.WriteLine("Normalization has been successfully done.");
+            LogSuccess("Normalization has been successfully done.");
             Close();            
         }
 
@@ -77,6 +82,23 @@ namespace ExcelTransformation
             outputFileUrl += "." + fileExtension;
 
             return outputFileUrl;
+        }
+
+        static void LogError(string message)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("EXCEPTION Occured:");
+            Console.WriteLine(message);
+            Console.ForegroundColor = ConsoleColor.Gray;
+        }
+
+        static void LogSuccess(string message)
+        {
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(message);
+            Console.ForegroundColor = ConsoleColor.Gray;
         }
 
         static void Close()
