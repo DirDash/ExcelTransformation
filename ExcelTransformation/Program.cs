@@ -6,7 +6,7 @@ namespace ExcelTransformation
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
             const string accountTablePostfix = "-accounts";
             const string managerTablePostfix = "-managers";
@@ -25,8 +25,8 @@ namespace ExcelTransformation
 
             var xlsNormalizer = new AccountManagerNormalizer();
 
-            //try
-            //{
+            try
+            {
                 Console.WriteLine("Normalization in progress...");
 
                 initialTable.Open(initialTableUrl, false);
@@ -39,10 +39,11 @@ namespace ExcelTransformation
                     xlsNormalizer.Normalize(initialTable, accountTable, managerTable, relationTable);
                 }
 
+                initialTable.SaveAndClose();
                 accountTable.SaveAndClose();
                 managerTable.SaveAndClose();
                 relationTable.SaveAndClose();
-            /*}
+            }
             catch (Exception exception)
             {
                 Console.WriteLine("EXCEPTION Occured:");
@@ -50,7 +51,7 @@ namespace ExcelTransformation
 
                 Close();
                 return;
-            }*/
+            }
 
             Console.WriteLine("Normalization has been successfully done.");
             Close();            
@@ -58,21 +59,17 @@ namespace ExcelTransformation
 
         static string GetInitialTableFileUrl()
         {
-            Console.Write("Enter (xls|xlsx) file to normalize url: ");
+            Console.WriteLine("Enter (xls|xlsx) file to normalize url: ");
 
-            return "C:\\Users\\DmitryB\\Documents\\Examples\\new_input_01.xlsx";
-
-            //return System.IO.Path.GetFullPath("\\..\\..\\examples\\input_01.xlsx");
-
-            //return Console.ReadLine();
+            return Console.ReadLine();
         }
 
         static string GetOutputFileUrl(string inputTableFileName, string postfix, string fileExtension)
         {
-            string outputFileUrl = string.Empty;
+            var outputFileUrl = string.Empty;
 
-            string[] inputFileUrlSplit = inputTableFileName.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < inputFileUrlSplit.Length - 1; i++)
+            var inputFileUrlSplit = inputTableFileName.Split(new char[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < inputFileUrlSplit.Length - 1; i++)
             {
                 outputFileUrl += inputFileUrlSplit[i];
             }

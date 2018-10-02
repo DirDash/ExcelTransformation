@@ -17,7 +17,7 @@ namespace ExcelTransformation.TableClasses
         private SharedStringTable _sharedStringTable;
 
         private bool _autosave;
-        private int _rowsCount;
+        private int _rowCount;
 
         public OpenXMLTable(bool autosave = false)
         {
@@ -32,7 +32,7 @@ namespace ExcelTransformation.TableClasses
 
             _sheetData = GetSheetData(workbookPart);
 
-            _rowsCount = _sheetData.ChildElements.Count;
+            _rowCount = _sheetData.ChildElements.Count;
 
             _sharedStringTable = GetSharedStringTable(workbookPart);
         }
@@ -61,7 +61,7 @@ namespace ExcelTransformation.TableClasses
 
         public IEnumerable<TableCell> GetRow(int rowIndex)
         {
-            if (rowIndex >= _rowsCount) return null;
+            if (rowIndex >= _rowCount) return null;
 
             var row = _sheetData.ElementAt(rowIndex);
 
@@ -70,20 +70,15 @@ namespace ExcelTransformation.TableClasses
 
         public void AddRow(IEnumerable<TableCell> cells)
         {
-            _rowsCount++;
-            var row = new Row { RowIndex = (uint)_rowsCount };
+            _rowCount++;
+            var row = new Row { RowIndex = (uint)_rowCount };
 
             foreach (var cell in cells)
             {
-                var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowsCount;
+                var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowCount;
 
                 var newCell = new Cell();
                 newCell.CellReference = cellReference;
-
-                //var sharedStringIndex = InsertSharedStringItem(cell.Value);
-
-                //newCell.CellValue = new CellValue(sharedStringIndex.ToString());
-                //newCell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
 
                 newCell.CellValue = new CellValue(cell.Value);
                 newCell.DataType = new EnumValue<CellValues>(CellValues.String);
@@ -140,8 +135,8 @@ namespace ExcelTransformation.TableClasses
 
         private TableCell ConvertToTableCell(Cell cell)
         {
-            string rowPart = string.Empty;
-            string columnPart = string.Empty;
+            var rowPart = string.Empty;
+            var columnPart = string.Empty;
             foreach (char c in cell.CellReference.Value)
             {
                 if (char.IsDigit(c))
@@ -154,9 +149,9 @@ namespace ExcelTransformation.TableClasses
                 }
             }
 
-            int rowIndex = int.Parse(rowPart) - 1;
-            int columnIndex = ConvertToColumnIndex(columnPart);
-            string cellValue = GetCellValue(cell);
+            var rowIndex = int.Parse(rowPart) - 1;
+            var columnIndex = ConvertToColumnIndex(columnPart);
+            var cellValue = GetCellValue(cell);
 
             return new TableCell(rowIndex, columnIndex, cellValue);
         }
@@ -168,7 +163,6 @@ namespace ExcelTransformation.TableClasses
             if (cell.DataType == CellValues.SharedString)
             {
                 var sharedStringIndex = int.Parse(cell.InnerText);
-                //var sharedStringItem = sharedStringsTable.ChildElements.GetElementSafe(sharedStringIndex);
                 var sharedStringItem = _sharedStringTable.ElementAt(sharedStringIndex);
 
                 return sharedStringItem.InnerText;
@@ -177,37 +171,19 @@ namespace ExcelTransformation.TableClasses
             return cell.InnerText;
         }
 
-        private int InsertSharedStringItem(string text)
-        {
-            int itemIndex = 0;
-            var shr = _sharedStringTable;
-            foreach (var item in _sharedStringTable.Elements())
-            {
-                if (item.InnerText == text)
-                {
-                    return itemIndex;
-                }
-                itemIndex++;
-            }
-
-            _sharedStringTable.AppendChild(new SharedStringItem(new Text(text)));
-
-            return itemIndex;
-        }
-
         private int ConvertToColumnIndex(string columnName)
         {
-            int columnIndex = 0;
+            var columnIndex = 0;
 
-            int i = 0;
+            var i = 0;
             while (i < columnName.Length)
             {
+                int remainder = columnName[i] - 65;
+                columnIndex += remainder;
                 if (i > 0)
                 {
-                    columnIndex += 26;
+                    columnIndex += 26 - remainder;
                 }
-
-                columnIndex += columnName[i] - 65;
                 i++;
             }
 
@@ -217,11 +193,11 @@ namespace ExcelTransformation.TableClasses
         private string ConvertToColumnName(int columnIndex)
         {
             columnIndex++;
-            string columnName = string.Empty;
+            var columnName = string.Empty;
 
             while (columnIndex > 0)
             {
-                int remainder = (columnIndex - 1) % 26;
+                var remainder = (columnIndex - 1) % 26;
                 columnName = Convert.ToChar(65 + remainder).ToString() + columnName;
                 columnIndex = (columnIndex - remainder) / 26;
             }
