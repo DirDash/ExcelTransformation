@@ -136,21 +136,17 @@ namespace ExcelTransformation.TableClasses
 
         private TableCell ConvertToTableCell(Cell cell)
         {
-            var rowPart = string.Empty;
             var columnPart = string.Empty;
             foreach (char c in cell.CellReference.Value)
             {
-                if (char.IsDigit(c))
-                    rowPart += c;
-                else
+                if (!char.IsDigit(c))
                     columnPart += c;
             }
-
-            var rowIndex = int.Parse(rowPart) - 1;
+            
             var columnIndex = ConvertToColumnIndex(columnPart);
             var cellValue = GetCellValue(cell);
 
-            return new TableCell(rowIndex, columnIndex, cellValue);
+            return new TableCell(columnIndex, cellValue);
         }
 
         private string GetCellValue(Cell cell)

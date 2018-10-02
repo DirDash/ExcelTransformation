@@ -8,7 +8,7 @@ Usage
 
 Configuration
 -----------------------------------
-Output file names and table headers can be set by string constants from `Program.cs` and `AccountManagerNormalizer`.
+Output file names and table headers can be set by string constants from `Program.cs` and `AccountManagerNormalizer.cs`.
 
 Libraries Docs
 -----------------------------------

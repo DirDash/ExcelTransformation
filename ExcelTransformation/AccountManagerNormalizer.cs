@@ -78,7 +78,7 @@ namespace ExcelTransformation
                 if (!_managerHeaders.Contains(header))
                 {
                     _accountTableHeaders.Add(header, columnIndex);
-                    accountTableHeaderCells.Add(new TableCell(0, columnIndex, header));
+                    accountTableHeaderCells.Add(new TableCell(columnIndex, header));
                     columnIndex++;
                 }
             }
@@ -92,7 +92,7 @@ namespace ExcelTransformation
 
             var managerTableHeaders = new List<TableCell>();
 
-            managerTableHeaders.Add(new TableCell(0, 0, _managerTableManagerHeader));
+            managerTableHeaders.Add(new TableCell(0, _managerTableManagerHeader));
 
             _managerTable.AddRow(managerTableHeaders);
         }
@@ -101,9 +101,9 @@ namespace ExcelTransformation
         {
             var relationTableHeaders = new List<TableCell>();
 
-            relationTableHeaders.Add(new TableCell(0, 0, _relationTableAccountHeader));
-            relationTableHeaders.Add(new TableCell(0, 1, _relationTableManagerHeader));
-            relationTableHeaders.Add(new TableCell(0, 2, _relationTableTypeHeader));
+            relationTableHeaders.Add(new TableCell(0, _relationTableAccountHeader));
+            relationTableHeaders.Add(new TableCell(1, _relationTableManagerHeader));
+            relationTableHeaders.Add(new TableCell(2, _relationTableTypeHeader));
 
             _relationTable.AddRow(relationTableHeaders);
         }
@@ -168,23 +168,23 @@ namespace ExcelTransformation
         private void ProcessAsAccountCell(TableCell cell, string columnHeader, int rowIndex, List<TableCell> accountCells)
         {
             var accountTableColumnIndex = _accountTableHeaders[columnHeader];
-            var accountCell = new TableCell(rowIndex, accountTableColumnIndex, cell.Value);
+            var accountCell = new TableCell(accountTableColumnIndex, cell.Value);
             accountCells.Add(accountCell);
         }
 
         private void InsertRowInManagerTable(string manager)
         {
             var rowCells = new List<TableCell>();
-            rowCells.Add(new TableCell(0, 0, manager));
+            rowCells.Add(new TableCell(0, manager));
             _managerTable.AddRow(rowCells);
         }
 
         private void InsertRowInRelationTable(string accountId, string manager, string type)
         {
             var rowCells = new List<TableCell>();
-            rowCells.Add(new TableCell(0, 0, accountId));
-            rowCells.Add(new TableCell(0, 1, manager));
-            rowCells.Add(new TableCell(0, 2, type));
+            rowCells.Add(new TableCell(0, accountId));
+            rowCells.Add(new TableCell(1, manager));
+            rowCells.Add(new TableCell(2, type));
 
             _relationTable.AddRow(rowCells);           
         }
