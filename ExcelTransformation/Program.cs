@@ -18,16 +18,21 @@ namespace ExcelTransformation
             var managerTableUrl = GetOutputFileUrl(initialTableUrl, managerTablePostfix, outputFileExtension);
             var relationTableUrl = GetOutputFileUrl(initialTableUrl, relationTablePostfix, outputFileExtension);
 
+            var initialTable = new OpenXMLTable();
+            var accountTable = new OpenXMLTable();
+            var managerTable = new OpenXMLTable();
+            var relationTable = new OpenXMLTable();
+
             var xlsNormalizer = new AccountManagerNormalizer();
 
-            try
-            {
-                var initialTable = new OpenXMLTable(initialTableUrl, false);
-                var accountTable = new OpenXMLTable(accountTableUrl, true);
-                var managerTable = new OpenXMLTable(managerTableUrl, true);
-                var relationTable = new OpenXMLTable(relationTableUrl, true);
-
+            //try
+            //{
                 Console.WriteLine("Normalization in progress...");
+
+                initialTable.Open(initialTableUrl, false);
+                accountTable.Create(accountTableUrl);
+                managerTable.Create(managerTableUrl);
+                relationTable.Create(relationTableUrl);
 
                 using (ExecutionTimer.StartNew("Normalization"))
                 {
@@ -37,7 +42,7 @@ namespace ExcelTransformation
                 accountTable.SaveAndClose();
                 managerTable.SaveAndClose();
                 relationTable.SaveAndClose();
-            }
+            /*}
             catch (Exception exception)
             {
                 Console.WriteLine("EXCEPTION Occured:");
@@ -45,7 +50,7 @@ namespace ExcelTransformation
 
                 Close();
                 return;
-            }
+            }*/
 
             Console.WriteLine("Normalization has been successfully done.");
             Close();            
@@ -55,9 +60,11 @@ namespace ExcelTransformation
         {
             Console.Write("Enter (xls|xlsx) file to normalize url: ");
 
-            return System.IO.Path.GetFullPath("\\..\\..\\examples\\input_01.xlsx");
+            return "C:\\Users\\DmitryB\\Documents\\Examples\\new_input_01.xlsx";
 
-            return Console.ReadLine();
+            //return System.IO.Path.GetFullPath("\\..\\..\\examples\\input_01.xlsx");
+
+            //return Console.ReadLine();
         }
 
         static string GetOutputFileUrl(string inputTableFileName, string postfix, string fileExtension)

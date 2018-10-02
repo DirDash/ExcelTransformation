@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 using DocumentFormat.OpenXml;
@@ -13,28 +12,45 @@ namespace ExcelTransformation.TableClasses
     {
         private const string _sheetName = "Sheet1";
 
-        private bool _autosave = false;
-
         private SpreadsheetDocument _document;
-        private WorkbookPart _workbookPart;
-        private WorksheetPart _worksheetPart;
         private SheetData _sheetData;
-        private SharedStringTablePart _shareStringTablePart;
+        private SharedStringTable _sharedStringTable;
 
+        private bool _autosave;
         private int _rowsCount;
 
-        public OpenXMLTable(string fileUrl, bool editable)
+        public OpenXMLTable(bool autosave = false)
         {
-            if (File.Exists(fileUrl))
-            {
-                OpenExistingFile(fileUrl, editable);
-            }
-            else
-            {
-                CreateNewFile(fileUrl);
-            }
+            _autosave = autosave;
+        }
+
+        public void Open(string fileUrl, bool editable)
+        {
+            _document = SpreadsheetDocument.Open(fileUrl, editable, new OpenSettings() { AutoSave = _autosave });
+
+            var workbookPart = _document.WorkbookPart;
+
+            _sheetData = GetSheetData(workbookPart);
 
             _rowsCount = _sheetData.ChildElements.Count;
+
+            _sharedStringTable = GetSharedStringTable(workbookPart);
+        }
+
+        public void Create(string fileUrl)
+        {
+            _document = SpreadsheetDocument.Create(fileUrl, SpreadsheetDocumentType.Workbook, _autosave);
+
+            var workbookPart = _document.AddWorkbookPart();
+            workbookPart.Workbook = new Workbook();
+
+            var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+            _sheetData = new SheetData();
+            worksheetPart.Worksheet = new Worksheet(_sheetData);
+
+            AddSheet(workbookPart, worksheetPart);
+
+            _sharedStringTable = AddSharedStringTable(workbookPart);
         }
 
         public void SaveAndClose()
@@ -49,7 +65,77 @@ namespace ExcelTransformation.TableClasses
 
             var row = _sheetData.ElementAt(rowIndex);
 
-            return row.OfType<Cell>().Select(ConvertToTableCell); ;
+            return row.OfType<Cell>().Select(ConvertToTableCell);
+        }
+
+        public void AddRow(IEnumerable<TableCell> cells)
+        {
+            _rowsCount++;
+            var row = new Row { RowIndex = (uint)_rowsCount };
+
+            foreach (var cell in cells)
+            {
+                var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowsCount;
+
+                var newCell = new Cell();
+                newCell.CellReference = cellReference;
+
+                //var sharedStringIndex = InsertSharedStringItem(cell.Value);
+
+                //newCell.CellValue = new CellValue(sharedStringIndex.ToString());
+                //newCell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
+
+                newCell.CellValue = new CellValue(cell.Value);
+                newCell.DataType = new EnumValue<CellValues>(CellValues.String);
+
+                row.Append(newCell);
+            }
+
+            _sheetData.Append(row);
+        }
+
+        private SheetData GetSheetData(WorkbookPart workbookPart)
+        {
+            var firstSheetId = workbookPart.Workbook.Descendants<Sheet>().First().Id;
+            var firstWorksheet = ((WorksheetPart)workbookPart.GetPartById(firstSheetId)).Worksheet;
+
+            return firstWorksheet.GetFirstChild<SheetData>();
+        }
+
+        private SharedStringTable GetSharedStringTable(WorkbookPart workbookPart)
+        {
+            var shareStringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+
+            if (shareStringTablePart == null)
+            {
+                shareStringTablePart = workbookPart.AddNewPart<SharedStringTablePart>();
+            }
+
+            if (shareStringTablePart.SharedStringTable == null)
+            {
+                shareStringTablePart.SharedStringTable = new SharedStringTable();
+            }
+
+            return shareStringTablePart.SharedStringTable;
+        }
+
+        private void AddSheet(WorkbookPart workbookPart, WorksheetPart worksheetPart)
+        {
+            var sheets = workbookPart.Workbook.AppendChild(new Sheets());
+            sheets.Append(new Sheet
+            {
+                Id = workbookPart.GetIdOfPart(worksheetPart),
+                SheetId = 1,
+                Name = _sheetName
+            });
+        }
+
+        private SharedStringTable AddSharedStringTable(WorkbookPart workbookPart)
+        {
+            var shareStringTablePart = workbookPart.AddNewPart<SharedStringTablePart>();
+            shareStringTablePart.SharedStringTable = new SharedStringTable();
+
+            return shareStringTablePart.SharedStringTable;
         }
 
         private TableCell ConvertToTableCell(Cell cell)
@@ -75,29 +161,6 @@ namespace ExcelTransformation.TableClasses
             return new TableCell(rowIndex, columnIndex, cellValue);
         }
 
-        public void AddRow(IEnumerable<TableCell> cells)
-        {
-            _rowsCount++;
-            var row = new Row { RowIndex = (uint)(_rowsCount) };
-
-            foreach (var cell in cells)
-            {
-                var cellReference = ConvertToColumnName(cell.ColumnIndex) + _rowsCount;
-
-                var newCell = new Cell();
-                newCell.CellReference = cellReference;
-
-                var sharedStringIndex = InsertSharedStringItem(cell.Value);
-
-                newCell.CellValue = new CellValue(sharedStringIndex.ToString());
-                newCell.DataType = new EnumValue<CellValues>(CellValues.SharedString);
-
-                row.Append(newCell);
-            }
-
-            _sheetData.Append(row);
-        }
-        
         private string GetCellValue(Cell cell)
         {
             if (cell == null) return null;
@@ -105,9 +168,8 @@ namespace ExcelTransformation.TableClasses
             if (cell.DataType == CellValues.SharedString)
             {
                 var sharedStringIndex = int.Parse(cell.InnerText);
-                var sharedStringsTable = _workbookPart.SharedStringTablePart.SharedStringTable;
-                var sharedStringItem = sharedStringsTable.ChildElements.GetElementSafe(sharedStringIndex);
-                //var sharedStringItem = sharedStringsTable.ElementAt(sharedStringIndex);
+                //var sharedStringItem = sharedStringsTable.ChildElements.GetElementSafe(sharedStringIndex);
+                var sharedStringItem = _sharedStringTable.ElementAt(sharedStringIndex);
 
                 return sharedStringItem.InnerText;
             }
@@ -115,56 +177,11 @@ namespace ExcelTransformation.TableClasses
             return cell.InnerText;
         }
 
-        private void OpenExistingFile(string fileUrl, bool editable)
-        {
-            _document = SpreadsheetDocument.Open(fileUrl, editable, new OpenSettings() { AutoSave = _autosave });
-
-            _workbookPart = _document.WorkbookPart;
-
-            string firstSheetId = _workbookPart.Workbook.Descendants<Sheet>().First().Id;
-            _worksheetPart = (WorksheetPart)_workbookPart.GetPartById(firstSheetId);
-            _sheetData = _worksheetPart.Worksheet.GetFirstChild<SheetData>();
-
-            _shareStringTablePart = _workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
-            if (_shareStringTablePart == null)
-            {
-                _shareStringTablePart = _workbookPart.AddNewPart<SharedStringTablePart>();
-            }
-            if (_shareStringTablePart.SharedStringTable == null)
-            {
-                _shareStringTablePart.SharedStringTable = new SharedStringTable();
-            }
-        }
-
-        private void CreateNewFile(string fileUrl)
-        {
-            _document = SpreadsheetDocument.Create(fileUrl, SpreadsheetDocumentType.Workbook, _autosave);
-
-            _workbookPart = _document.AddWorkbookPart();
-            _workbookPart.Workbook = new Workbook();
-
-            _worksheetPart = _workbookPart.AddNewPart<WorksheetPart>();
-            _sheetData = new SheetData();
-            _worksheetPart.Worksheet = new Worksheet(_sheetData);
-            _shareStringTablePart = _workbookPart.AddNewPart<SharedStringTablePart>();
-            _shareStringTablePart.SharedStringTable = new SharedStringTable();
-
-            var sheets = _document.WorkbookPart.Workbook.AppendChild(new Sheets());
-
-            var sheet = new Sheet
-            {
-                Id = _document.WorkbookPart.GetIdOfPart(_worksheetPart),
-                SheetId = 1,
-                Name = _sheetName
-            };
-
-            sheets.Append(sheet);
-        }
-
         private int InsertSharedStringItem(string text)
         {
             int itemIndex = 0;
-            foreach (var item in _shareStringTablePart.SharedStringTable.Elements())
+            var shr = _sharedStringTable;
+            foreach (var item in _sharedStringTable.Elements())
             {
                 if (item.InnerText == text)
                 {
@@ -173,9 +190,28 @@ namespace ExcelTransformation.TableClasses
                 itemIndex++;
             }
 
-            _shareStringTablePart.SharedStringTable.AppendChild(new SharedStringItem(new Text(text)));
+            _sharedStringTable.AppendChild(new SharedStringItem(new Text(text)));
 
             return itemIndex;
+        }
+
+        private int ConvertToColumnIndex(string columnName)
+        {
+            int columnIndex = 0;
+
+            int i = 0;
+            while (i < columnName.Length)
+            {
+                if (i > 0)
+                {
+                    columnIndex += 26;
+                }
+
+                columnIndex += columnName[i] - 65;
+                i++;
+            }
+
+            return columnIndex;
         }
 
         private string ConvertToColumnName(int columnIndex)
@@ -191,13 +227,6 @@ namespace ExcelTransformation.TableClasses
             }
 
             return columnName;
-        }
-
-        // Only for first 26 columns (A..Z)
-        // TODO: extend for all columns
-        private int ConvertToColumnIndex(string columnName) 
-        {
-            return columnName[0] - 65;
         }
     }
 }
